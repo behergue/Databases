@@ -1,0 +1,157 @@
+/abolish
+-- NOMBRES: Beatriz Herguedas Pinedo, Pablo Hernández Aguado
+-- CURSO: 3º DG
+
+-- PRÁCTICA 2 --
+
+
+-- RELACIONES
+create or replace table programadores(dni string primary key, nombre string, dirección string, teléfono string);
+
+create or replace table analistas(dni string primary key, nombre string, dirección string, teléfono string);
+
+create or replace table distribución(códigopr string, dniemp string, horas int, primary key(códigopr, dniemp));
+
+create or replace table proyectos(código string primary key, descripción string, dnidir string);
+
+-- DATOS DE RELACIÓN: 'programadores'
+insert into programadores(dni, nombre, dirección, teléfono) values('1','Jacinto','Jazmín 4','91-8888888');
+insert into programadores(dni, nombre, dirección, teléfono) values('2','Herminia','Rosa 4','91-7777777');
+insert into programadores(dni, nombre, dirección, teléfono) values('3','Calixto','Clavel 3','91-1231231');
+insert into programadores(dni, nombre, dirección, teléfono) values('4','Teodora','Petunia 3','91-6666666');          
+
+-- DATOS DE RELACIÓN: 'analistas'
+insert into analistas(dni, nombre, dirección, teléfono) values('4','Teodora','Petunia 3','91-6666666');
+insert into analistas(dni, nombre, dirección, teléfono) values('5','Evaristo','Luna 1','91-1111111');
+insert into analistas(dni, nombre, dirección, teléfono) values('6','Luciana','Júpiter 2','91-8888888');
+insert into analistas(dni, nombre, dirección, teléfono) values('7','Nicodemo','Plutón 3',null);
+
+
+-- DATOS DE RELACIÓN: 'distribución'
+insert into distribución(códigopr, dniemp, horas) values('P1','1',10);
+insert into distribución(códigopr, dniemp, horas) values('P1','2',40);
+insert into distribución(códigopr, dniemp, horas) values('P1','4',5);
+insert into distribución(códigopr, dniemp, horas) values('P2','4',10);
+insert into distribución(códigopr, dniemp, horas) values('P3','1',10);
+insert into distribución(códigopr, dniemp, horas) values('P3','3',40);
+insert into distribución(códigopr, dniemp, horas) values('P3','4',5);
+insert into distribución(códigopr, dniemp, horas) values('P3','5',30);
+insert into distribución(códigopr, dniemp, horas) values('P4','4',20);
+insert into distribución(códigopr, dniemp, horas) values('P4','5',10);       
+
+-- DATOS DE RELACIÓN: 'proyectos'
+insert into proyectos(código, descripción, dnidir) values('P1','Nómina','4');
+insert into proyectos(código, descripción, dnidir) values('P2','Contabilidad','4');
+insert into proyectos(código, descripción, dnidir) values('P3','Producción','5');
+insert into proyectos(código, descripción, dnidir) values('P4','Clientes','5');
+insert into proyectos(código, descripción, dnidir) values('P5','Ventas','6');
+
+
+-- Renombramientos:
+distribución_re(proyecto, dni, horas) := distribución;
+proyectos_re(proyecto, descripción, dni) := proyectos;
+
+---- EJERCICIOS ----
+-- VISTA 1 --
+vista1(dni) := project dni (programadores njoin analistas);
+-------------
+
+-- VISTA 2 --
+dni_Todos := project dni (programadores union analistas);
+dni_Asignados := project dni (distribución_re);
+dni_No_asignados := (dni_Todos) difference (dni_Asignados);
+dni_horas_No_asignados(dni, sumhoras) := project dni,0 (dni_No_asignados);
+dni_horas_Asignados(dni, sumhoras) := group_by dni dni, sum(horas) true (distribución_re);
+
+vista2(dni, horas) := (dni_horas_Asignados) union (dni_horas_No_asignados);
+-------------
+
+-- VISTA 3 --
+dni_nombre_Todos := project dni,nombre (programadores union analistas);
+proyecto_dni_Asignados := project dni,proyecto (distribución_re);
+
+vista3(dni, nombre, proyecto) := (dni_nombre_Todos) nljoin (proyecto_dni_Asignados);
+-------------
+
+-- VISTA 4 --
+dni_nombre_tlfn_Sin_tlfn := select teléfono is null (programadores union analistas);
+
+vista4(dni, nombre) := project dni,nombre (dni_nombre_tlfn_Sin_tlfn);
+-------------
+
+-- VISTA 5 --
+-- Por cada empleado, las horas totales que trabaja y el número de proyectos a los que está asignado.
+dni_sumhoras_Todos(dni, sumhoras) := vista2;
+dni_proyecto_Asignados := project dni,proyecto (distribución_re);
+dni_countproy_Asignados(dni, countproy) := group_by dni dni, count(proyecto) true (dni_proyecto_Asignados);
+dni_sumhoras_countproy_Asignados := (dni_sumhoras_Todos) njoin (dni_countproy_Asignados);
+
+-- Por cada proyecto, las horas totales que se dedicarán a él y el número de empleados asignados.
+proyecto_horas_Asignados := project proyecto,horas (distribución_re);
+proyecto_sumhoras_Asignados(proyecto, sumhoras) := group_by proyecto proyecto, sum(horas) true (proyecto_horas_Asignados);
+dni_proyecto_Asignados := project dni,proyecto (distribución_re);
+proyecto_countdni_Asignados(proyecto, countdni) := group_by proyecto proyecto, count(dni) true (dni_proyecto_Asignados);
+proyecto_sumhoras_countdni_Asignados := (proyecto_sumhoras_Asignados) njoin (proyecto_countdni_Asignados);
+
+-- Por cada empleado, media de las horas que trabaja en cada proyecto.
+dni_horasXproy(dni, horasXproy) := project dni,sumhoras/countproy (dni_sumhoras_countproy_Asignados);
+
+-- Por cada proyecto, media de las horas trabajadas por empleado.
+proyecto_horasXdni(proyecto, horasXdni) := project proyecto,sumhoras/countdni (proyecto_sumhoras_countdni_Asignados);
+
+-- Media total de las horas trabajadas por empleado. 
+avgOFhorasXdni(media) := group_by [] avg(horasXdni) true (project horasXdni (proyecto_horasXdni));
+
+dni_horasXproy_media := dni_horasXproy product avgOFhorasXdni;
+
+vista5(dni, número) := project dni,horasXproy (select horasXproy<media (dni_horasXproy_media));
+-------------
+
+-- VISTA 6 --
+dni_Evaristo := project dni (select nombre='Evaristo' (programadores union analistas));
+proyecto_Si_Evaristo := project proyecto (distribución_re njoin dni_Evaristo);
+distribución_re_Trabaja_Evaristo := (distribución_re) njoin (proyecto_Si_Evaristo);
+distribución_re_No_trabaja_Evaristo := (distribución_re) difference (distribución_re_Trabaja_Evaristo);
+
+vista6(dni, códigopr, horas) := project dni,proyecto,horas*1.2 (distribución_re_No_trabaja_Evaristo);
+-------------
+
+-- VISTA 7 --
+dni_proyecto_Todos := project dni,proyecto (distribución_re);
+dni_Trabaja_Evaristo := (dni_proyecto_Todos) division (proyecto_Si_Evaristo);
+
+vista7(dni) := (dni_Trabaja_Evaristo) difference (dni_Evaristo);
+-------------
+
+-- VISTA 8 --
+dni_proyecto_Todos := project dni,proyecto (distribución_re);
+dni_proyecto_Evaristo := (dni_proyecto_Todos) njoin (dni_Evaristo);
+dni_proyecto_Trabaja_Evaristo := project dni,proyecto (distribución_re_Trabaja_Evaristo);
+dni_proyecto_Trabaja_Evaristo_sin_el := (dni_proyecto_Trabaja_Evaristo) difference (dni_proyecto_Evaristo);
+
+dni_countproy_Trabaja_Evaristo(dni, countproy) := group_by dni dni, count(proyecto) true (dni_proyecto_Trabaja_Evaristo_sin_el);
+countproy_Evaristo(countproyEv) := group_by [] count(proyecto) true (dni_proyecto_Evaristo);
+
+vista8(dni) := project dni ((dni_countproy_Trabaja_Evaristo) zjoin countproy=countproyEv (countproy_Evaristo));
+-------------
+
+-- VISTA 9 --
+proyecto_Dirige_Evaristo := project proyecto (proyectos_re njoin dni_Evaristo);
+dni_Dirige_Evaristo(dnidir) := project dni (distribución_re njoin proyecto_Dirige_Evaristo);
+
+-- Recursión
+vista9_1(dni) := (dni_Dirige_Evaristo) union (project dni(distribución_re njoin (project proyecto(vista9_1 njoin proyectos_re))));
+
+vista9 := (vista9_1) difference (dni_Evaristo);
+-------------
+
+-- RESULTADOS --
+select true (vista1);
+select true (vista2);
+select true (vista3);
+select true (vista4);
+select true (vista5);
+select true (vista6);
+select true (vista7);
+select true (vista8);
+select true (vista9);

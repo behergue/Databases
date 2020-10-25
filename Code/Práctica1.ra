@@ -1,0 +1,69 @@
+-- Práctica 1
+-- Beatriz Herguedas Pinedo, Pablo Hernández Aguado
+
+-- Para procesar este archivo (se puede especificar también la ruta): /process datos.ra
+-- Antes debéis crear las relaciones (tablas).
+-- Falta la última tupla de cada tabla y debéis escribir vosotros la instrucción de inserción en cada caso
+/abolish
+create table programadores(dni string primary key, nombre string, dirección string, teléfono string);
+
+insert into programadores(dni, nombre, dirección, teléfono) values('1','Jacinto','Jazmín 4','91-8888888');
+insert into programadores(dni, nombre, dirección, teléfono) values('2','Herminia','Rosa 4','91-7777777');
+insert into programadores(dni, nombre, dirección, teléfono) values('3','Calixto','Clavel 3','91-1231231');
+insert into programadores(dni, nombre, dirección, teléfono) values('4','Teodora','Petunia 3','91-6666666');
+
+create table analistas(dni string primary key, nombre string, dirección string, teléfono string);
+
+insert into analistas(dni, nombre, dirección, teléfono) values('4','Teodora','Petunia 3','91-6666666');
+insert into analistas(dni, nombre, dirección, teléfono) values('5','Evaristo','Luna 1','91-1111111');
+insert into analistas(dni, nombre, dirección, teléfono) values('6','Luciana','Júpiter 2', '91-8888888');
+insert into analistas(dni, nombre, dirección, teléfono) values('7','Nicodemo','Plutón 3', NULL);
+
+-- Para crear una clave primaria de más de un atributo hay que añadir al final como si fuese otro campo lo siguiente: primary key (códigopr, dniemp)
+
+create table distribución(códigopr string, dniemp string, horas integer, primary key (códigopr, dniemp));
+
+insert into distribución(códigopr, dniemp, horas) values('P1','1',10);
+insert into distribución(códigopr, dniemp, horas) values('P1','2',40);
+insert into distribución(códigopr, dniemp, horas) values('P1','4',5);
+insert into distribución(códigopr, dniemp, horas) values('P2','4',10);
+insert into distribución(códigopr, dniemp, horas) values('P3','1',10);
+insert into distribución(códigopr, dniemp, horas) values('P3','3',40);
+insert into distribución(códigopr, dniemp, horas) values('P3','4',5);
+insert into distribución(códigopr, dniemp, horas) values('P3','5',30);
+insert into distribución(códigopr, dniemp, horas) values('P4','4',20);
+insert into distribución(códigopr, dniemp, horas) values('P4','5',10);
+
+create table proyectos(código string primary key, descripción string, dnidir string);
+
+insert into proyectos(código, descripción, dnidir) values('P1','Nómina','4');
+insert into proyectos(código, descripción, dnidir) values('P2','Contabilidad','4');
+insert into proyectos(código, descripción, dnidir) values('P3','Producción','5');
+insert into proyectos(código, descripción, dnidir) values('P4','Clientes','5');
+insert into proyectos(código, descripción, dnidir) values('P5','Ventas','6');
+
+
+vista1(dni):= project dni(programadores union analistas);
+select true (vista1);
+
+vista2(dni):= project dni(programadores intersect analistas);
+select true (vista2);
+
+vista3(dni):= project dni(programadores union analistas) difference (project dnidir(proyectos) union project dniemp(distribución));
+select true (vista3);
+
+vista4(código):= (project código(proyectos)) difference (project códigopr(rename nuevaDistrib(códigopr, dni, horas)(distribución) njoin analistas));
+select true (vista4);
+
+vista5(dni):= (project dnidir(proyectos)) difference (project dni(analistas intersect programadores));
+select true (vista5);
+
+vista6(descripción, nombre, horas):= project códigopr, nombre, horas(rename nuevaDistrib(códigopr, dni, horas)(distribución) njoin (programadores union analistas));
+select true (vista6);
+
+vista7(teléfono):= project teléfono(select dni != dni1 and teléfono = teléfono1((programadores union analistas) product (rename empleados(dni1, nombre1, dirección1, teléfono1)(programadores union analistas))));
+select true (vista7);
+
+--Alternativa a la vista7
+vista8(teléfono):= project teléfono(select dni != dni1((programadores union analistas) njoin (rename empleados(dni1, nombre1, dirección1, teléfono)(programadores union analistas))));
+select true (vista8);
